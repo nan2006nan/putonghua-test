@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="普通话测试图标">
+  <defs>
+    <linearGradient id="g1" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#c8553d"/>
+      <stop offset="100%" stop-color="#8f3c2d"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="88" fill="#f7f5f0"/>
+  <rect x="58" y="58" width="396" height="396" rx="72" fill="url(#g1)"/>
+  <path d="M160 200c25-42 71-68 127-68 47 0 85 15 116 44l-43 43c-20-17-41-25-73-25-40 0-68 18-87 51l-40-45zm-22 98c14-24 34-39 60-48l38 42c-17 12-29 29-35 52l-63-46zm197 34c-18 30-48 48-91 53l-17 44-56-23 18-47c-32-6-58-23-79-51l44-35c17 18 37 29 60 32l18-49 56 24-18 50c32 5 58 19 81 46l-40 39z" fill="#fff" opacity="0.96"/>
+  <circle cx="163" cy="322" r="20" fill="#fff" opacity="0.9"/>
+  <circle cx="286" cy="164" r="16" fill="#fff" opacity="0.8"/>
+</svg>
