@@ -787,7 +787,6 @@ const STORAGE_KEYS = {
   EVAL: 'pth_eval_notes',
   SCORE: 'pth_scores'
 };
-let deferredInstallPrompt = null;
 
 function loadJSON(key, def) {
   try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; }
