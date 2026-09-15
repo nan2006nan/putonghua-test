@@ -754,6 +754,22 @@ body {
 
 <script>
 let deferredInstallPrompt = null;
+// ===== 全局状态变量 =====
+let practiceIndex = 0;
+let practiceType = 'char';
+let practiceList = [];
+let timerSeconds = 210;
+let timerRunning = false;
+let timerInterval = null;
+let currentView = 'home';
+let mediaRecorder = null;
+let audioChunks = [];
+let audioRecordings = [];
+let selectedPaperId = null;
+let examRecorder = null;
+let examAudioChunks = [];
+let examRecordings = [];
+
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
