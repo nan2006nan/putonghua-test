@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pth-v2';
+const CACHE_NAME = 'pth-v3';
 const APP_FILES = [
   './',
   './index.html',
