@@ -576,6 +576,21 @@ body {
 
 .wi-dims { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 
+
+/* ===== 朗读评测 ===== */
+.rec-item { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.rec-label { font-size: 13px; font-weight: 600; min-width: 70px; }
+.rec-saved { font-size: 11px; color: #2e9e5b; }
+.self-eval { margin-top: 10px; }
+.self-char { font-size: 26px; font-weight: 700; text-align: center; margin: 4px 0; }
+.self-py { font-size: 16px; color: var(--text-muted); font-weight: 400; }
+.self-title { font-size: 13px; color: var(--text-muted); margin: 8px 0; text-align: center; }
+.self-btns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.self-btns .btn { flex: 1; min-width: 88px; font-size: 13px; }
+.audio-item { display: flex; align-items: center; gap: 10px; margin: 6px 0; flex-wrap: wrap; }
+.audio-item audio { flex: 1; min-width: 160px; height: 36px; }
+.rec-meta { font-size: 12px; color: var(--text-muted); width: 100%; }
+#records-list .rec-item { border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 10px; }
 </style>
 </head>
 <body>
@@ -595,27 +610,32 @@ body {
       <div class="module-card" onclick="startPractice('char')">
         <div class="icon">🔤</div>
         <h3>单字专项练习</h3>
-        <p>5000字随机乱序 · 3.5分钟</p>
+        <p>5000字随机乱序 · 带拼音 · 朗读打分</p>
       </div>
       <div class="module-card" onclick="startPractice('word')">
         <div class="icon">📝</div>
         <h3>词语专项练习</h3>
-        <p>全部词语随机乱序 · 2.5分钟</p>
+        <p>全部词语随机乱序 · 带拼音 · 朗读打分</p>
       </div>
       <div class="module-card" onclick="startPractice('passage')">
         <div class="icon">📖</div>
         <h3>短文专项练习</h3>
-        <p>50篇朗读短文 · 4分钟</p>
+        <p>50篇朗读短文 · 带拼音 · 整篇朗读</p>
       </div>
       <div class="module-card" onclick="showExamSelect()">
         <div class="icon">📋</div>
         <h3>整套模拟测试</h3>
-        <p>任选一套完整试卷</p>
+        <p>四部分分模块计时 · 无拼音</p>
       </div>
-      <div class="module-card wrong" onclick="showWrongBook()" style="grid-column: 1 / -1;">
+      <div class="module-card wrong" onclick="showWrongBook()">
         <div class="icon">❌</div>
         <h3>错题集</h3>
-        <p>橙色＝发音不标准 · 红色＝完全错误/没发音 · 可反复练习、可移除</p>
+        <p>橙色＝发音不标准 · 红色＝完全错误 · 可反复练习</p>
+      </div>
+      <div class="module-card wrong" onclick="showRecords()">
+        <div class="icon">📼</div>
+        <h3>我的录音</h3>
+        <p>所有朗读录音归档 · 随时回听</p>
       </div>
     </div>
     <div style="display:flex;justify-content:center;margin-top:18px;">
@@ -633,7 +653,6 @@ body {
   </div>
   <div class="container">
     <div class="practice-header">
-      <div class="timer" id="practice-timer">03:30</div>
       <div class="progress-bar"><div class="progress-fill" id="practice-progress" style="width:0%"></div></div>
       <div class="progress-text" id="practice-progress-text">0/0</div>
     </div>
@@ -649,11 +668,11 @@ body {
       <div class="passage-title" id="passage-title"></div>
       <div id="passage-content"></div>    <div class="eval-card" id="passage-eval" style="margin-top:14px">
       <div class="eval-actions">
-        <button class="btn primary" id="passage-eval-btn" onclick="togglePassageEval()">🎤 朗读评测</button>
-        <span class="eval-status" id="passage-eval-status">点“朗读评测”，从开头朗读整篇</span>
+        <button class="btn primary" id="passage-eval-btn" onclick="togglePassageEval()">🎤 开始朗读</button>
+        <span class="eval-status" id="passage-eval-status">从开头朗读整篇，读完后点“停止并评测”</span>
       </div>
       <div class="eval-result" id="passage-eval-result"></div>
-      <p class="eval-hint">识别后自动对比全文，读错的字会标出并加入错题集（仅 Chrome / Edge）。</p>
+      <p class="eval-hint">整篇录音自动保存（“我的录音”可回听）。识别不可用时对照原文点击错行标记自评。</p>
     </div>
 
       <p style="font-size:12px;color:var(--text-muted);margin-top:12px;text-align:center;border-top:1px solid var(--border);padding-top:10px">💡 点击某一行可标记错误（橙色=发音不标准，再点一次=红色=完全错误，再点=取消）。标记自动保存，下次打开仍可见。</p>
@@ -664,30 +683,19 @@ body {
       <button class="btn primary" onclick="nextItem()">下一个 →</button>
       <button class="btn" style="border-color:var(--orange);color:var(--orange);background:var(--orange-light)" onclick="markWrong('orange')">🟠 发音不标准</button>
       <button class="btn" style="border-color:var(--red);color:var(--red);background:var(--red-light)" onclick="markWrong('red')">🔴 完全错误</button>
-      <button class="btn" onclick="toggleTimer()" id="timer-toggle-btn">暂停计时</button>
     </div>
 
-    <!-- 录音区 -->
-    <div class="record-section">
-      <h4>🎙 本地录音（仅存本机，不上传）</h4>
-      <div class="action-row" style="margin-bottom:0">
-        <button class="btn" id="record-btn" onclick="toggleRecording()">● 开始录音</button>
-        <button class="btn" onclick="playLastRecording()">▶ 播放最近录音</button>
-      </div>
-      <div class="audio-list" id="audio-list"></div>
-    </div>
-
-        <!-- 语音评测区 -->
+    <!-- 朗读评测区（录音+自动打分+自评兜底） -->
     <div class="eval-card" id="speech-eval">
-      <h4>🎤 语音评测（读后自动打分）</h4>
+      <h4>🎤 朗读评测</h4>
       <div class="eval-actions">
-        <button class="btn primary" id="eval-btn" onclick="toggleEval()">🎤 开始评测</button>
-        <span class="eval-status" id="eval-status">点“开始评测”，然后朗读当前内容</span>
+        <button class="btn primary" id="eval-btn" onclick="toggleEval()">🎤 开始朗读</button>
+        <span class="eval-status" id="eval-status">点“开始朗读”，读完后点“停止并评测”</span>
       </div>
       <div class="eval-result" id="eval-result"></div>
-      <p class="eval-hint">自动分析声母/韵母/声调错误并加入错题集。仅支持 Chrome / Edge / 安卓 Chrome；苹果 Safari 不支持语音识别。</p>
+      <div class="rec-item" id="current-rec"></div>
+      <p class="eval-hint">录音只存本机，可随时回听。自动识别不可用时对照拼音自评（Safari 无自动识别）。全部录音在首页“我的录音”里。</p>
     </div>
-
 
     <!-- 自评区 -->
     <div class="eval-section">
@@ -728,39 +736,56 @@ body {
   </div>
   <div class="container">
     <div class="practice-header">
-      <div class="timer" id="exam-timer">00:00</div>
-      <div class="progress-text" id="exam-section-label">第一部分</div>
+      <div class="timer" id="exam-timer">03:30</div>
+      <div class="progress-text" id="exam-section-label">第一部分 · 读单音节字词</div>
     </div>
 
     <!-- 单字 -->
-    <div class="exam-section" id="exam-char-section">
+    <div class="exam-section" id="exam-char-section" style="display:block">
       <h3>一、读单音节字词（100个音节，限时3.5分钟）</h3>
       <div class="exam-chars" id="exam-chars"></div>
     </div>
 
     <!-- 词语 -->
-    <div class="exam-section" id="exam-word-section">
+    <div class="exam-section" id="exam-word-section" style="display:none">
       <h3>二、读多音节词语（100个音节，限时2.5分钟）</h3>
       <div class="exam-words" id="exam-words"></div>
     </div>
 
     <!-- 短文 -->
-    <div class="exam-section" id="exam-passage-section">
+    <div class="exam-section" id="exam-passage-section" style="display:none">
       <h3>三、朗读短文（400个音节，限时4分钟）</h3>
       <div class="passage-card no-pinyin" id="exam-passage"></div>
     </div>
 
     <!-- 命题说话 -->
-    <div class="exam-section" id="exam-topic-section">
+    <div class="exam-section" id="exam-topic-section" style="display:none">
       <h3>四、命题说话（任选一个，限时3分钟）</h3>
       <ul class="topic-list" id="exam-topics"></ul>
     </div>
 
+    <div class="action-row" id="exam-nav">
+      <button class="btn" id="exam-prev-btn" onclick="examPrev()" style="visibility:hidden">← 上一部分</button>
+      <button class="btn primary" id="exam-next-btn" onclick="examNext()">进入第二部分 →</button>
+    </div>
     <div class="action-row">
       <button class="btn" id="exam-record-btn" onclick="toggleExamRecording()">● 开始录音</button>
       <button class="btn" onclick="playExamRecording()">▶ 播放录音</button>
     </div>
     <div class="audio-list" id="exam-audio-list"></div>
+  </div>
+</div>
+
+<!-- ===== 视图：我的录音 ===== -->
+<div id="view-records" class="view">
+  <div class="topbar">
+    <button class="back-btn" onclick="goHome()">← 返回</button>
+    <h1>我的录音</h1>
+    <button class="back-btn" onclick="clearAllRecsBtn()">🗑 清空</button>
+  </div>
+  <div class="container">
+    <div id="records-empty" style="text-align:center;padding:40px 0;color:var(--text-muted);display:none">还没有录音。在练习页点“开始朗读”录音后，会出现在这里。</div>
+    <div id="records-list"></div>
   </div>
 </div>
 
@@ -7627,7 +7652,7 @@ function showView(id) {
 }
 function goHome() {
   stopTimer();
-  stopRecording();
+  if (evalRecActive) stopEvalSession();
   showView('home');
 }
 
@@ -7678,15 +7703,14 @@ function startPractice(type) {
   practiceList = buildPracticeList(type);
   practiceIndex = 0;
   const titles = { char: '单字专项练习', word: '词语专项练习', passage: '短文专项练习' };
-  const durations = { char: 210, word: 150, passage: 240 };
   document.getElementById('practice-title').textContent = titles[type];
-  timerSeconds = durations[type];
   // 显示对应区域
   document.getElementById('char-display').style.display = (type === 'passage') ? 'none' : 'flex';
   document.getElementById('passage-display').style.display = (type === 'passage') ? 'block' : 'none';
+  const seEl = document.getElementById('speech-eval');
+  if (seEl) seEl.style.display = (type === 'passage') ? 'none' : 'block';
   showView('practice');
   renderPracticeItem();
-  startTimer();
 }
 
 // ===== 渲染当前练习项 =====
@@ -7766,60 +7790,353 @@ function updateTimerDisplay() {
   else if (timerSeconds <= 60) el.classList.add('warning');
 }
 
-// ===== 录音功能 =====
-async function toggleRecording() {
-  const btn = document.getElementById('record-btn');
-  if (mediaRecorder && mediaRecorder.state === 'recording') {
-    stopRecording();
-    btn.textContent = '● 开始录音';
-    btn.classList.remove('recording');
-    return;
-  }
+// ===== 统一朗读评测（录音+自动识别+自评兜底）=====
+let evalMediaRecorder = null;
+let evalRecStream = null;
+let evalAudioChunks = [];
+let evalRecActive = false;
+let evalSR = null;
+let evalSRText = '';
+let evalSRFailed = false;
+
+// ---- IndexedDB 录音存储 ----
+let recDB = null;
+function openRecDB() {
+  return new Promise((resolve, reject) => {
+    if (recDB) return resolve(recDB);
+    try {
+      const req = indexedDB.open('putonghua-rec', 1);
+      req.onupgradeneeded = e => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('recs')) {
+          const store = db.createObjectStore('recs', { keyPath: 'id' });
+          store.createIndex('time', 'time');
+        }
+      };
+      req.onsuccess = e => { recDB = e.target.result; resolve(recDB); };
+      req.onerror = e => reject(e);
+    } catch (e) { reject(e); }
+  });
+}
+async function saveRecording(rec) {
+  const db = await openRecDB();
+  return new Promise((resolve, reject) => {
+    try {
+      const tx = db.transaction('recs', 'readwrite');
+      tx.objectStore('recs').put(rec);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => reject(tx.error);
+    } catch (e) { reject(e); }
+  });
+}
+async function loadRecordings() {
+  const db = await openRecDB();
+  return new Promise((resolve, reject) => {
+    try {
+      const tx = db.transaction('recs', 'readonly');
+      const req = tx.objectStore('recs').getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    } catch (e) { reject(e); }
+  });
+}
+async function deleteRecById(id) {
+  const db = await openRecDB();
+  return new Promise((resolve, reject) => {
+    try {
+      const tx = db.transaction('recs', 'readwrite');
+      tx.objectStore('recs').delete(id);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => reject(tx.error);
+    } catch (e) { reject(e); }
+  });
+}
+async function clearAllRecs() {
+  const db = await openRecDB();
+  return new Promise((resolve, reject) => {
+    try {
+      const tx = db.transaction('recs', 'readwrite');
+      tx.objectStore('recs').clear();
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => reject(tx.error);
+    } catch (e) { reject(e); }
+  });
+}
+
+// ---- 录音+识别统一会话 ----
+async function toggleEval() {
+  const item = practiceList[practiceIndex];
+  if (!item) { toast('请先进入练习'); return; }
+  if (evalRecActive) { stopEvalSession(); return; }
+  const btn = document.getElementById('eval-btn');
+  const status = document.getElementById('eval-status');
+  const result = document.getElementById('eval-result');
+  if (result) result.innerHTML = '';
+  const cur = document.getElementById('current-rec');
+  if (cur) cur.innerHTML = '';
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
-    audioChunks = [];
-    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
-    mediaRecorder.onstop = () => {
-      const blob = new Blob(audioChunks, { type: 'audio/webm' });
-      const url = URL.createObjectURL(blob);
-      const item = practiceList[practiceIndex];
-      audioRecordings.push({ url, blob, type: practiceType, itemId: item ? item.id : 'unknown', time: new Date().toLocaleString() });
-      renderAudioList();
-      stream.getTracks().forEach(t => t.stop());
+    evalRecStream = stream;
+    evalAudioChunks = [];
+    evalMediaRecorder = new MediaRecorder(stream);
+    evalMediaRecorder.ondataavailable = e => { if (e.data.size > 0) evalAudioChunks.push(e.data); };
+    evalMediaRecorder.onstop = () => {
+      const blob = new Blob(evalAudioChunks, { type: 'audio/webm' });
+      const rec = {
+        id: 'rec_' + item.id + '_' + Date.now(),
+        itemId: item.id,
+        type: item.type,
+        text: item.char || item.word || item.title,
+        pinyin: item.pinyin || '',
+        blob: blob,
+        time: Date.now()
+      };
+      saveRecording(rec).then(() => {
+        showCurrentRec(rec);
+        toast('录音已保存，可在首页“我的录音”回听');
+      }).catch(() => {});
+      if (evalRecStream) { evalRecStream.getTracks().forEach(t => t.stop()); evalRecStream = null; }
     };
-    mediaRecorder.start();
-    btn.textContent = '■ 停止录音';
+    // 同时启动自动识别（单字/词语；短文单独处理）
+    evalSRText = '';
+    evalSRFailed = false;
+    if (speechSupported() && item.type !== 'passage') {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const sr = new SR();
+      sr.lang = 'zh-CN';
+      sr.interimResults = false;
+      sr.maxAlternatives = 1;
+      sr.onresult = e => {
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          if (e.results[i].isFinal) evalSRText += e.results[i][0].transcript;
+        }
+      };
+      sr.onend = () => {};
+      sr.onerror = e => {
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') evalSRFailed = '麦克风权限被拒绝';
+        else if (e.error === 'network') evalSRFailed = '识别服务连不上（需要能访问谷歌服务的网络）';
+        else if (e.error === 'no-speech') evalSRFailed = '没听到声音';
+        else evalSRFailed = true;
+      };
+      evalSR = sr;
+      try { sr.start(); } catch (e) { evalSRFailed = true; }
+    } else {
+      evalSRFailed = true;
+    }
+    evalMediaRecorder.start();
+    evalRecActive = true;
+    btn.textContent = '■ 停止并评测';
     btn.classList.add('recording');
+    if (status) status.textContent = '录音中…读完后点“停止并评测”';
     toast('录音中…');
-  } catch(e) {
+  } catch (e) {
     toast('无法访问麦克风：' + e.message);
   }
 }
-function stopRecording() {
-  if (mediaRecorder && mediaRecorder.state === 'recording') {
-    mediaRecorder.stop();
+
+async function togglePassageEval() {
+  const item = practiceList[practiceIndex];
+  if (!item || item.type !== 'passage') { toast('请在短文专项中使用'); return; }
+  if (evalRecActive) { stopPassageEval(); return; }
+  const btn = document.getElementById('passage-eval-btn');
+  const status = document.getElementById('passage-eval-status');
+  const result = document.getElementById('passage-eval-result');
+  if (result) result.innerHTML = '';
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    evalRecStream = stream;
+    evalAudioChunks = [];
+    evalMediaRecorder = new MediaRecorder(stream);
+    evalMediaRecorder.ondataavailable = e => { if (e.data.size > 0) evalAudioChunks.push(e.data); };
+    evalMediaRecorder.onstop = () => {
+      const blob = new Blob(evalAudioChunks, { type: 'audio/webm' });
+      const rec = { id: 'rec_' + item.id + '_' + Date.now(), itemId: item.id, type: 'passage', text: item.title, pinyin: '', blob: blob, time: Date.now() };
+      saveRecording(rec).then(() => toast('整篇录音已保存，可在“我的录音”回听')).catch(() => {});
+      if (evalRecStream) { evalRecStream.getTracks().forEach(t => t.stop()); evalRecStream = null; }
+    };
+    evalSRText = '';
+    evalSRFailed = false;
+    if (speechSupported()) {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const sr = new SR();
+      sr.lang = 'zh-CN';
+      sr.continuous = true;
+      sr.interimResults = false;
+      sr.maxAlternatives = 1;
+      sr.onresult = e => {
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          if (e.results[i].isFinal) evalSRText += e.results[i][0].transcript;
+        }
+      };
+      sr.onend = () => {};
+      sr.onerror = e => {
+        if (e.error === 'network') evalSRFailed = '识别服务连不上（需要能访问谷歌服务的网络）';
+        else if (e.error === 'not-allowed' || e.error === 'service-not-allowed') evalSRFailed = '麦克风权限被拒绝';
+        else if (e.error === 'no-speech') evalSRFailed = '没听到声音';
+        else evalSRFailed = true;
+      };
+      evalSR = sr;
+      try { sr.start(); } catch (e) { evalSRFailed = true; }
+    } else {
+      evalSRFailed = true;
+    }
+    evalMediaRecorder.start();
+    evalRecActive = true;
+    if (btn) { btn.textContent = '■ 停止并评测'; btn.classList.add('recording'); }
+    if (status) status.textContent = '录音中…从开头朗读整篇，读完后点“停止并评测”';
+    toast('录音中…');
+  } catch (e) {
+    toast('无法访问麦克风：' + e.message);
   }
 }
-function renderAudioList() {
-  const list = document.getElementById('audio-list');
-  if (audioRecordings.length === 0) { list.innerHTML = ''; return; }
-  let html = '';
-  audioRecordings.forEach((r, i) => {
-    html += '<div class="audio-item"><span style="font-size:12px;color:var(--text-muted);min-width:80px">' + r.time + '</span><audio controls src="' + r.url + '"></audio><button class="del-btn" onclick="deleteRecording(' + i + ')">✕</button></div>';
+// 短文停止按钮复用 stopEvalSession，但按钮/状态元素不同，单独封装
+
+function stopEvalSession() {
+  const btn = document.getElementById('eval-btn');
+  if (btn) { btn.textContent = '🎤 开始朗读'; btn.classList.remove('recording'); }
+  const status = document.getElementById('eval-status');
+  evalRecActive = false;
+  if (evalMediaRecorder && evalMediaRecorder.state === 'recording') evalMediaRecorder.stop();
+  if (evalSR) { try { evalSR.stop(); } catch (e) {} }
+  const item = practiceList[practiceIndex];
+  setTimeout(() => {
+    if (!item) return;
+    if (evalSRText) {
+      if (status) status.textContent = '识别完成';
+      if (item.type === 'char') showCharEval(item, evalSRText);
+      else if (item.type === 'word') showWordEval(item, evalSRText);
+      else showPassageEval(evalSRText);
+    } else if (evalSRFailed === '麦克风权限被拒绝') {
+      if (status) status.textContent = '麦克风权限被拒绝，请在浏览器设置中允许';
+      showSelfEval(item);
+    } else if (evalSRFailed && evalSRFailed !== true) {
+      if (status) status.textContent = '自动识别不可用（' + evalSRFailed + '），请对照拼音自评';
+      showSelfEval(item);
+    } else if (evalSRFailed === true) {
+      if (status) status.textContent = speechSupported() ? '没有识别到语音，请自评或重读' : '此浏览器不支持自动识别，请对照拼音自评';
+      showSelfEval(item);
+    } else {
+      if (status) status.textContent = '没有识别到内容，请自评或重读';
+      showSelfEval(item);
+    }
+  }, 800);
+}
+
+function showCurrentRec(rec) {
+  const cur = document.getElementById('current-rec');
+  if (!cur) return;
+  const url = URL.createObjectURL(rec.blob);
+  const label = rec.type === 'char' ? '单字' : (rec.type === 'word' ? '词语' : '短文');
+  cur.innerHTML = '<div class="audio-item"><span class="rec-label">' + label + ' · ' + rec.text + '</span><audio controls src="' + url + '"></audio><span class="rec-saved">已保存</span></div>';
+}
+
+// ---- 自动识别结果展示（复用现有打分引擎）----
+// showCharEval / showWordEval / showPassageEval 已在上方定义
+
+// ---- 自评兜底 ----
+function showSelfEval(item) {
+  const result = item.type === 'passage' ? document.getElementById('passage-eval-result') : document.getElementById('eval-result');
+  if (!result) return;
+  if (item.type === 'passage') {
+    result.innerHTML = '<div class="self-eval"><div class="self-title">自动识别不可用。请对照原文朗读，点击读错的行标记：</div><div class="self-btns"><button class="btn" onclick="selfPassageDone()">✅ 已标记完</button></div></div>';
+    return;
+  }
+  const label = item.char || item.word;
+  const py = item.pinyin || '';
+  result.innerHTML = '<div class="self-eval">' +
+    '<div class="self-char">' + label + ' <span class="self-py">' + py + '</span></div>' +
+    '<div class="self-title">听录音对照拼音，判断错在哪：</div>' +
+    '<div class="self-btns">' +
+      '<button class="btn" onclick="selfEvalSubmit(\'correct\')">✅ 全对</button>' +
+      '<button class="btn" onclick="selfEvalSubmit(\'shengmu\')">🔤 声母错</button>' +
+      '<button class="btn" onclick="selfEvalSubmit(\'yunmu\')">🅰 韵母错</button>' +
+      '<button class="btn" onclick="selfEvalSubmit(\'shengdiao\')">↗ 声调错</button>' +
+      '<button class="btn" onclick="selfEvalSubmit(\'total\')">❌ 完全错</button>' +
+    '</div></div>';
+}
+function selfPassageDone() {
+  const result = document.getElementById('passage-eval-result') || document.getElementById('eval-result');
+  if (result) result.innerHTML = '<div class="eval-dims ok">已记录。可点击“我的录音”回听整篇。</div>';
+}
+function selfEvalSubmit(kind) {
+  const item = practiceList[practiceIndex];
+  if (!item) return;
+  const result = document.getElementById('eval-result');
+  if (kind === 'correct') {
+    if (result) result.innerHTML = '<div class="eval-char-line"><span class="ok">✓</span><span class="eval-char">' + (item.char || item.word) + '</span><span class="eval-dims">' + (item.pinyin || '') + '</span></div><div class="eval-score ok">100 分</div>';
+    return;
+  }
+  let errs = [], score = 100, level = 'orange';
+  if (kind === 'shengmu') { errs = ['声母']; score = 80; }
+  else if (kind === 'yunmu') { errs = ['韵母']; score = 80; }
+  else if (kind === 'shengdiao') { errs = ['声调']; score = 85; }
+  else { errs = ['声母', '韵母', '声调']; score = 45; level = 'red'; }
+  addWrongWithDetail(item, level, errs.join('、'), '自评：' + errs.join('、') + '错误', score);
+  if (result) {
+    result.innerHTML = '<div class="eval-char-line"><span class="' + (level === 'orange' ? 'mid' : 'bad') + '">✗</span><span class="eval-char">' + (item.char || item.word) + '</span><span class="eval-dims">自评：' + errs.join('、') + '错</span></div><div class="eval-score">' + score + ' 分</div><div class="eval-dims">已加入错题集</div>';
+  }
+}
+
+// ---- 短文朗读评测（统一会话）----
+function stopPassageEval() {
+  const btn = document.getElementById('passage-eval-btn');
+  const status = document.getElementById('passage-eval-status');
+  evalRecActive = false;
+  if (evalMediaRecorder && evalMediaRecorder.state === 'recording') evalMediaRecorder.stop();
+  if (evalSR) { try { evalSR.stop(); } catch (e) {} }
+  const item = practiceList[practiceIndex];
+  setTimeout(() => {
+    if (btn) { btn.textContent = '🎤 朗读评测'; btn.classList.remove('recording'); }
+    if (!item) return;
+    if (evalSRText) {
+      if (status) status.textContent = '识别完成';
+      showPassageEval(evalSRText);
+    } else if (evalSRFailed && evalSRFailed !== true) {
+      if (status) status.textContent = '自动识别不可用（' + evalSRFailed + '），请对照原文自评';
+      showSelfEval(item);
+    } else {
+      if (status) status.textContent = speechSupported() ? '没有识别到语音，请对照原文自评' : '此浏览器不支持自动识别，请对照原文自评';
+      showSelfEval(item);
+    }
+  }, 800);
+}
+
+// ---- 我的录音视图 ----
+function showRecords() {
+  const list = document.getElementById('records-list');
+  if (!list) return;
+  showView('records');
+  loadRecordings().then(recs => {
+    recs.sort((a, b) => b.time - a.time);
+    const empty = document.getElementById('records-empty');
+    if (recs.length === 0) {
+      list.innerHTML = '';
+      if (empty) empty.style.display = 'block';
+      return;
+    }
+    if (empty) empty.style.display = 'none';
+    const typeNames = { char: '单字', word: '词语', passage: '短文' };
+    let html = '';
+    recs.forEach(r => {
+      const d = new Date(r.time);
+      const ts = d.getMonth() + 1 + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+      const url = URL.createObjectURL(r.blob);
+      html += '<div class="rec-item"><div class="rec-meta">' + (typeNames[r.type] || '练习') + ' · ' + r.text + ' · ' + ts + '</div><audio controls src="' + url + '"></audio><button class="wi-remove" onclick="deleteRecItem(\'' + r.id + '\')">✕</button></div>';
+    });
+    list.innerHTML = html;
+  }).catch(() => {
+    list.innerHTML = '<div class="eval-dims">无法读取录音（浏览器不支持 IndexedDB）</div>';
   });
-  list.innerHTML = html;
 }
-function deleteRecording(i) {
-  URL.revokeObjectURL(audioRecordings[i].url);
-  audioRecordings.splice(i, 1);
-  renderAudioList();
+function deleteRecItem(id) {
+  deleteRecById(id).then(() => showRecords()).catch(() => {});
+  toast('已删除录音');
 }
-function playLastRecording() {
-  if (audioRecordings.length === 0) { toast('暂无录音'); return; }
-  const last = audioRecordings[audioRecordings.length - 1];
-  const audio = new Audio(last.url);
-  audio.play();
+function clearAllRecsBtn() {
+  if (confirm('确定清空全部录音？')) {
+    clearAllRecs().then(() => showRecords()).catch(() => {});
+    toast('已清空');
+  }
 }
 
 // ===== 错题标记 =====
@@ -7937,17 +8254,47 @@ function startExam() {
   examRecordings = [];
   document.getElementById('exam-audio-list').innerHTML = '';
   showView('exam');
-  // 总计时13分钟
-  timerSeconds = 13 * 60;
-  startExamTimer();
+  // 分模块计时：从第一部分开始
+  examPart = 1;
+  showExamPart(1);
+  startExamTimer(210);
 }
 let examTimerInterval = null;
-function startExamTimer() {
+let examPart = 1;
+const EXAM_PARTS = [
+  { label: '读单音节字词', sec: 210 },
+  { label: '读多音节词语', sec: 150 },
+  { label: '朗读短文', sec: 240 },
+  { label: '命题说话', sec: 180 }
+];
+function showExamPart(n) {
+  examPart = n;
+  const ids = ['exam-char-section', 'exam-word-section', 'exam-passage-section', 'exam-topic-section'];
+  ids.forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = (i === n - 1) ? 'block' : 'none';
+  });
+  const p = EXAM_PARTS[n - 1];
+  document.getElementById('exam-section-label').textContent = '第' + ['一', '二', '三', '四'][n - 1] + '部分 · ' + p.label;
+  const next = document.getElementById('exam-next-btn');
+  if (next) next.textContent = (n < 4) ? ('进入第' + ['二', '三', '四'][n - 1] + '部分 →') : '✅ 完成考试';
+  const prev = document.getElementById('exam-prev-btn');
+  if (prev) prev.style.visibility = (n === 1) ? 'hidden' : 'visible';
+}
+function examNext() {
+  if (examPart < 4) { showExamPart(examPart + 1); startExamTimer(EXAM_PARTS[examPart - 1].sec); }
+  else { goHome(); toast('模拟考试完成'); }
+}
+function examPrev() {
+  if (examPart > 1) { showExamPart(examPart - 1); startExamTimer(EXAM_PARTS[examPart - 1].sec); }
+}
+function startExamTimer(seconds) {
   if (examTimerInterval) clearInterval(examTimerInterval);
+  timerSeconds = seconds;
   updateExamTimer();
   examTimerInterval = setInterval(() => {
     if (timerSeconds > 0) { timerSeconds--; updateExamTimer(); }
-    else { clearInterval(examTimerInterval); toast('考试时间到！'); }
+    else { clearInterval(examTimerInterval); toast('本部分时间到！'); }
   }, 1000);
 }
 function updateExamTimer() {
@@ -7975,6 +8322,8 @@ async function toggleExamRecording() {
       examRecordings.push({ url, blob, time: new Date().toLocaleString() });
       renderExamAudioList();
       stream.getTracks().forEach(t => t.stop());
+      btn.textContent = '● 开始录音';
+      btn.classList.remove('recording');
     };
     examRecorder.start();
     btn.textContent = '■ 停止录音';
@@ -8083,12 +8432,12 @@ function startWrongPractice() {
   practiceType = 'wrong';
   practiceIndex = 0;
   document.getElementById('practice-title').textContent = '错题练习';
-  timerSeconds = 210;
   document.getElementById('char-display').style.display = 'flex';
   document.getElementById('passage-display').style.display = 'none';
+  const seEl2 = document.getElementById('speech-eval');
+  if (seEl2) seEl2.style.display = 'block';
   showView('practice');
   renderPracticeItem();
-  startTimer();
   toast('开始错题练习，共' + practiceList.length + '题');
 }
 
@@ -8144,41 +8493,10 @@ function getDictPinyin(ch) {
   return Array.isArray(v) ? v : [v];
 }
 
-// 识别器
-let evalRec = null, evalActive = false;
+// 识别器（统一评测使用自己的会话，此处仅保留能力检测）
 function speechSupported() {
   return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
 }
-function startEvaluator(mode, onResult, onError) {
-  if (!speechSupported()) { onError('此浏览器不支持语音识别。请用电脑 Chrome/Edge，或安卓手机 Chrome。'); return; }
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const rec = new SR();
-  rec.lang = 'zh-CN';
-  rec.continuous = (mode === 'passage');
-  rec.interimResults = false;
-  rec.maxAlternatives = 1;
-  let finalText = '';
-  rec.onresult = (e) => {
-    let t = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      if (e.results[i].isFinal) t += e.results[i][0].transcript;
-    }
-    finalText += t;
-  };
-  rec.onend = () => { evalActive = false; onResult(finalText); };
-  rec.onerror = (e) => {
-    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { onError('麦克风权限被拒绝，请在浏览器设置中允许麦克风'); }
-    else if (e.error === 'no-speech') { onError('没听到声音，请靠近麦克风再试'); }
-    else if (e.error === 'network') { onError('语音识别网络错误，请重试'); }
-    else if (e.error === 'aborted') { /* 用户主动停止 */ }
-  };
-  evalRec = rec; evalActive = true;
-  try { rec.start(); } catch (e) { evalActive = false; onError('无法启动录音'); }
-}
-function stopEvaluator() {
-  if (evalRec) { try { evalRec.stop(); } catch (e) {} }
-}
-
 function cleanText(t) {
   return String(t || '').replace(/[\s，。！？、；：""''“”·…—\-—～,.!?;:'"()（）《》<>【】]/g, '');
 }
@@ -8199,28 +8517,6 @@ function addWrongWithDetail(item, level, errType, detail, score) {
 }
 
 // ===== 单字/词语评测 =====
-function toggleEval() {
-  if (evalActive) { stopEvaluator(); return; }
-  const item = practiceList[practiceIndex];
-  if (!item) { toast('请先进入练习'); return; }
-  if (item.type === 'passage') { toast('短文请用下方朗读评测按钮'); return; }
-  const btn = document.getElementById('eval-btn');
-  const status = document.getElementById('eval-status');
-  const result = document.getElementById('eval-result');
-  result.innerHTML = '';
-  btn.textContent = '⏹ 停止评测';
-  status.textContent = '正在听…请朗读：' + (item.type === 'char' ? item.char : item.word);
-  startEvaluator('item', (text) => {
-    btn.textContent = '🎤 开始评测';
-    status.textContent = '评测完成';
-    if (item.type === 'char') showCharEval(item, text);
-    else showWordEval(item, text);
-  }, (err) => {
-    btn.textContent = '🎤 开始评测';
-    status.textContent = err;
-  });
-}
-
 function showCharEval(item, text) {
   const el = document.getElementById('eval-result');
   const ans = item.char, ansPy = item.pinyin || (getDictPinyin(ans) || [''])[0];
@@ -8299,26 +8595,6 @@ function showWordEval(item, text) {
   }).join('');
   if (hasBad) html += '<div class="eval-dims">已加入错题集（' + (level === 'orange' ? '发音不标准' : '完全错误') + '）</div>';
   el.innerHTML = html;
-}
-
-// ===== 短文朗读评测 =====
-let passageEvalActive = false;
-function togglePassageEval() {
-  if (passageEvalActive) { stopEvaluator(); return; }
-  const btn = document.getElementById('passage-eval-btn');
-  const status = document.getElementById('passage-eval-status');
-  const result = document.getElementById('passage-eval-result');
-  if (btn) btn.textContent = '⏹ 停止朗读';
-  if (status) status.textContent = '正在听…请从开头朗读整篇短文，读完自动评测';
-  if (result) result.innerHTML = '';
-  startEvaluator('passage', (text) => {
-    if (btn) btn.textContent = '🎤 朗读评测';
-    if (status) status.textContent = '评测完成';
-    showPassageEval(text);
-  }, (err) => {
-    if (btn) btn.textContent = '🎤 朗读评测';
-    if (status) status.textContent = err;
-  });
 }
 
 function showPassageEval(text) {
