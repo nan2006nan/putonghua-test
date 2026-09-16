@@ -589,6 +589,10 @@ body {
 .self-btns .btn { flex: 1; min-width: 88px; font-size: 13px; }
 .audio-item { display: flex; align-items: center; gap: 10px; margin: 6px 0; flex-wrap: wrap; }
 .audio-item audio { flex: 1; min-width: 160px; height: 36px; }
+.xf-key-row { display: flex; align-items: center; gap: 10px; margin: 8px 0; flex-wrap: wrap; }
+.xf-key-row label { font-size: 13px; font-weight: 600; min-width: 70px; }
+.xf-key-row input { flex: 1; min-width: 200px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background: #fff; color: var(--text); }
+.xf-key-actions { display: flex; gap: 10px; margin-top: 12px; }
 .rec-meta { font-size: 12px; color: var(--text-muted); width: 100%; }
 #records-list .rec-item { border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 10px; }
 </style>
@@ -637,7 +641,13 @@ body {
         <h3>我的录音</h3>
         <p>所有朗读录音归档 · 随时回听</p>
       </div>
+    
+    <div class="module-card xf-settings" onclick="showXfSettings()" style="margin-top:14px;border:1px dashed var(--border)">
+      <div class="icon">⚙️</div>
+      <h3>识别服务设置</h3>
+      <p>自动评测识别服务配置（讯飞，免费1万次）</p>
     </div>
+    <div id="xf-keys-form" style="display:none;background:var(--bg-card);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-top:12px"></div></div>
     <div style="display:flex;justify-content:center;margin-top:18px;">
       <button id="install-btn" class="btn primary" style="display:none;">📲 安装到桌面/首页</button>
     </div>
@@ -7882,6 +7892,7 @@ async function toggleEval() {
     evalMediaRecorder.ondataavailable = e => { if (e.data.size > 0) evalAudioChunks.push(e.data); };
     evalMediaRecorder.onstop = () => {
       const blob = new Blob(evalAudioChunks, { type: 'audio/webm' });
+      evalLastBlob = blob;
       const rec = {
         id: 'rec_' + item.id + '_' + Date.now(),
         itemId: item.id,
@@ -7950,6 +7961,7 @@ async function togglePassageEval() {
     evalMediaRecorder.ondataavailable = e => { if (e.data.size > 0) evalAudioChunks.push(e.data); };
     evalMediaRecorder.onstop = () => {
       const blob = new Blob(evalAudioChunks, { type: 'audio/webm' });
+      evalLastBlob = blob;
       const rec = { id: 'rec_' + item.id + '_' + Date.now(), itemId: item.id, type: 'passage', text: item.title, pinyin: '', blob: blob, time: Date.now() };
       saveRecording(rec).then(() => toast('整篇录音已保存，可在“我的录音”回听')).catch(() => {});
       if (evalRecStream) { evalRecStream.getTracks().forEach(t => t.stop()); evalRecStream = null; }
@@ -7999,27 +8011,41 @@ function stopEvalSession() {
   if (evalMediaRecorder && evalMediaRecorder.state === 'recording') evalMediaRecorder.stop();
   if (evalSR) { try { evalSR.stop(); } catch (e) {} }
   const item = practiceList[practiceIndex];
+  if (status) status.textContent = '⏳ 正在识别评测…';
   setTimeout(() => {
     if (!item) return;
+    // 已配置讯飞：走讯飞识别（国内可用，不依赖谷歌）
+    if (evalLastBlob && getXFKeys() && getXFKeys().appid) {
+      xfRecognize(evalLastBlob, (text) => {
+        if (status) status.textContent = '✅ 自动评测完成';
+        if (item.type === 'char') showCharEval(item, text);
+        else if (item.type === 'word') showWordEval(item, text);
+        else showPassageEval(text);
+      }, (err) => {
+        if (status) status.textContent = '❌ 讯飞识别失败：' + err + '。本次请自评，错误会自动加入错题集';
+        showSelfEval(item);
+      });
+      return;
+    }
     if (evalSRText) {
-      if (status) status.textContent = '识别完成';
+      if (status) status.textContent = '✅ 自动评测完成';
       if (item.type === 'char') showCharEval(item, evalSRText);
       else if (item.type === 'word') showWordEval(item, evalSRText);
       else showPassageEval(evalSRText);
     } else if (evalSRFailed === '麦克风权限被拒绝') {
-      if (status) status.textContent = '麦克风权限被拒绝，请在浏览器设置中允许';
+      if (status) status.textContent = '❌ 自动评测失败：麦克风权限被拒绝，请在浏览器设置中允许后重试';
       showSelfEval(item);
     } else if (evalSRFailed && evalSRFailed !== true) {
-      if (status) status.textContent = '自动识别不可用（' + evalSRFailed + '），请对照拼音自评';
+      if (status) status.textContent = '❌ 自动评测失败：' + evalSRFailed + '。本次请自评，读错会自动加入错题集';
       showSelfEval(item);
     } else if (evalSRFailed === true) {
-      if (status) status.textContent = speechSupported() ? '没有识别到语音，请自评或重读' : '此浏览器不支持自动识别，请对照拼音自评';
+      if (status) status.textContent = '❌ 自动评测失败：' + (speechSupported() ? '没有识别到语音，请重读或自评' : '此浏览器不支持自动识别，请对照拼音自评');
       showSelfEval(item);
     } else {
-      if (status) status.textContent = '没有识别到内容，请自评或重读';
+      if (status) status.textContent = '❌ 自动评测失败：没有识别到语音内容，请重读或自评';
       showSelfEval(item);
     }
-  }, 800);
+  }, 900);
 }
 
 function showCurrentRec(rec) {
@@ -8085,20 +8111,31 @@ function stopPassageEval() {
   if (evalMediaRecorder && evalMediaRecorder.state === 'recording') evalMediaRecorder.stop();
   if (evalSR) { try { evalSR.stop(); } catch (e) {} }
   const item = practiceList[practiceIndex];
+  if (status) status.textContent = '⏳ 正在识别评测…';
   setTimeout(() => {
     if (btn) { btn.textContent = '🎤 朗读评测'; btn.classList.remove('recording'); }
     if (!item) return;
+    if (evalLastBlob && getXFKeys() && getXFKeys().appid) {
+      xfRecognize(evalLastBlob, (text) => {
+        if (status) status.textContent = '✅ 自动评测完成';
+        showPassageEval(text);
+      }, (err) => {
+        if (status) status.textContent = '❌ 讯飞识别失败：' + err + '。请对照原文自评';
+        showSelfEval(item);
+      });
+      return;
+    }
     if (evalSRText) {
-      if (status) status.textContent = '识别完成';
+      if (status) status.textContent = '✅ 自动评测完成';
       showPassageEval(evalSRText);
     } else if (evalSRFailed && evalSRFailed !== true) {
-      if (status) status.textContent = '自动识别不可用（' + evalSRFailed + '），请对照原文自评';
+      if (status) status.textContent = '❌ 自动评测失败：' + evalSRFailed + '。请对照原文自评';
       showSelfEval(item);
     } else {
-      if (status) status.textContent = speechSupported() ? '没有识别到语音，请对照原文自评' : '此浏览器不支持自动识别，请对照原文自评';
+      if (status) status.textContent = '❌ 自动评测失败：' + (speechSupported() ? '没有识别到语音，请对照原文自评' : '此浏览器不支持自动识别，请对照原文自评');
       showSelfEval(item);
     }
-  }, 800);
+  }, 900);
 }
 
 // ---- 我的录音视图 ----
@@ -8657,6 +8694,154 @@ function showPassageEval(text) {
   }
   result.innerHTML = html;
 }
+// ===== 讯飞语音识别（国内可用的自动评测）=====
+let evalLastBlob = null;
+const XF_KEYS_KEY = 'pth_xf_keys';
+function getXFKeys() { return loadJSON(XF_KEYS_KEY, null); }
+function saveXFKeys(keys) { saveJSON(XF_KEYS_KEY, keys); }
+function clearXFKeys() { try { localStorage.removeItem(XF_KEYS_KEY); } catch (e) {} }
+
+function xfSetKeysUI() {
+  const keys = getXFKeys() || {};
+  const cur = document.getElementById('xf-keys-form');
+  if (!cur) return;
+  cur.innerHTML =
+    '<div class="xf-key-row"><label>AppID</label><input id="xf-appid" placeholder="讯飞开放平台 AppID" value="' + (keys.appid || '') + '"></div>' +
+    '<div class="xf-key-row"><label>APIKey</label><input id="xf-apikey" placeholder="APIKey" value="' + (keys.apikey || '') + '"></div>' +
+    '<div class="xf-key-row"><label>APISecret</label><input id="xf-apisecret" placeholder="APISecret" value="' + (keys.apisecret || '') + '"></div>' +
+    '<div class="xf-key-actions"><button class="btn primary" onclick="xfSaveKeys()">保存密钥</button>' +
+    (keys.appid ? '<button class="btn" onclick="clearXFKeys();toast(\'已清除\');xfSetKeysUI()">清除</button>' : '') +
+    '</div>';
+}
+function xfSaveKeys() {
+  const appid = (document.getElementById('xf-appid') || {}).value || '';
+  const apikey = (document.getElementById('xf-apikey') || {}).value || '';
+  const apisecret = (document.getElementById('xf-apisecret') || {}).value || '';
+  if (!appid || !apikey || !apisecret) { toast('请填写完整的三个密钥'); return; }
+  saveXFKeys({ appid: appid.trim(), apikey: apikey.trim(), apisecret: apisecret.trim() });
+  toast('讯飞密钥已保存，自动评测已启用');
+  xfSetKeysUI();
+}
+
+async function xfSign(apiSecret, signatureOrigin) {
+  try {
+    const enc = new TextEncoder();
+    const key = await crypto.subtle.importKey('raw', enc.encode(apiSecret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const sig = await crypto.subtle.sign('HMAC', key, enc.encode(signatureOrigin));
+    return btoa(String.fromCharCode.apply(null, new Uint8Array(sig)));
+  } catch (e) { return ''; }
+}
+
+async function blobToPCM16(blob) {
+  const buf = await blob.arrayBuffer();
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  const ctx = new Ctx();
+  const audioBuf = await ctx.decodeAudioData(buf);
+  const rate = 16000;
+  const len = Math.max(1, Math.floor(audioBuf.duration * rate));
+  const out = new Float32Array(len);
+  const data = audioBuf.getChannelData(0);
+  const ratio = data.length / len;
+  for (let i = 0; i < len; i++) {
+    out[i] = data[Math.min(Math.floor(i * ratio), data.length - 1)];
+  }
+  const pcm = new Int16Array(len);
+  for (let i = 0; i < len; i++) {
+    const s = Math.max(-1, Math.min(1, out[i]));
+    pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  }
+  try { ctx.close(); } catch (e) {}
+  return pcm;
+}
+
+function xfRecognize(blob, onResult, onError) {
+  const keys = getXFKeys();
+  if (!keys || !keys.appid) { onError('未配置讯飞密钥'); return; }
+  blobToPCM16(blob).then(pcm => {
+    const host = 'iat-api.xfyun.cn';
+    const path = '/v2/iat';
+    const date = new Date().toUTCString();
+    const signatureOrigin = 'host: ' + host + '\ndate: ' + date + '\nGET ' + path + ' HTTP/1.1';
+    xfSign(keys.apisecret, signatureOrigin).then(signature => {
+      const authorizationOrigin = 'api_key="' + keys.apikey + '", algorithm="hmac-sha256", headers="host date request-line", signature="' + signature + '"';
+      const authorization = btoa(unescape(encodeURIComponent(authorizationOrigin)));
+      const url = 'wss://' + host + path + '?authorization=' + encodeURIComponent(authorization) + '&date=' + encodeURIComponent(date) + '&host=' + host;
+      let ws;
+      try {
+        ws = new WebSocket(url, 'chat');
+      } catch (e) { onError('无法建立识别连接'); return; }
+      let wsOpen = false, frameIdx = 0, timer = null;
+      const FRAME = 1280;
+      const totalFrames = Math.ceil(pcm.length * 2 / FRAME);
+      let fullText = '';
+      const order = {}; // sn -> text
+      ws.onopen = () => {
+        wsOpen = true;
+        sendNextFrame();
+      };
+      function sendNextFrame() {
+        if (frameIdx >= totalFrames) return;
+        const status = (frameIdx === totalFrames - 1) ? 2 : (frameIdx === 0 ? 0 : 1);
+        const start = frameIdx * FRAME / 2;
+        const end = Math.min(pcm.length, start + FRAME / 2);
+        const chunk = pcm.slice(start, end);
+        let b64 = '';
+        const bytes = new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength);
+        for (let i = 0; i < bytes.length; i += 0x8000) {
+          b64 += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+        }
+        const audio = btoa(b64);
+        const msg = {
+          common: { app_id: keys.appid },
+          business: { language: 'zh_cn', domain: 'iat', accent: 'mandarin', vad_eos: 10000, dwa: 'wpgs' },
+          data: { status: status, format: 'audio/L16;rate=16000', encoding: 'raw', audio: audio }
+        };
+        try { ws.send(JSON.stringify(msg)); } catch (e) { onError('发送音频失败'); return; }
+        frameIdx++;
+        if (status === 2) {
+          timer = setTimeout(() => { try { ws.close(); } catch (e) {} }, 15000);
+        } else {
+          setTimeout(sendNextFrame, 20);
+        }
+      }
+      ws.onmessage = (ev) => {
+        let d;
+        try { d = JSON.parse(ev.data); } catch (e) { return; }
+        if (d.code && d.code !== 0) { onError('讯飞错误' + d.code + ':' + (d.message || '')); try { ws.close(); } catch (e) {} return; }
+        if (d.data && d.data.result && d.data.result.ws) {
+          const sn = d.data.result.sn;
+          let txt = '';
+          d.data.result.ws.forEach(w => { w.cw.forEach(c => { txt += c.w; }); });
+          order[sn] = txt;
+          fullText = '';
+          const keys2 = Object.keys(order).map(Number).sort((a, b) => a - b);
+          keys2.forEach(k => { fullText += order[k]; });
+        }
+        if (d.data && d.data.status === 2) {
+          if (timer) clearTimeout(timer);
+          if (fullText && fullText.trim()) onResult(fullText.trim());
+          else onError('没有识别到语音内容');
+          try { ws.close(); } catch (e) {}
+        }
+      };
+      ws.onerror = () => { onError('识别服务连接失败（网络不通）'); };
+      ws.onclose = () => {
+        if (timer) clearTimeout(timer);
+      };
+    }).catch(() => onError('鉴权计算失败'));
+  }).catch(() => onError('音频转换失败（浏览器不支持）'));
+}
+
+function showXfSettings() {
+  const cur = document.getElementById('xf-keys-form');
+  if (!cur) return;
+  const visible = cur.style.display !== 'none';
+  if (visible) { cur.style.display = 'none'; return; }
+  xfSetKeysUI();
+  cur.style.display = 'block';
+  cur.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 </script>
 </body>
 </html>
