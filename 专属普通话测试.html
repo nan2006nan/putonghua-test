@@ -8807,7 +8807,7 @@ function xfRecognize(blob, onResult, onError) {
       ws.onmessage = (ev) => {
         let d;
         try { d = JSON.parse(ev.data); } catch (e) { return; }
-        if (d.code && d.code !== 0) { onError('讯飞错误' + d.code + ':' + (d.message || '')); try { ws.close(); } catch (e) {} return; }
+        if (d.code && d.code !== 0) { onError('讯飞返回错误' + d.code + '（' + (d.message || '') + '）。请检查密钥是否正确'); try { ws.close(); } catch (e) {} return; }
         if (d.data && d.data.result && d.data.result.ws) {
           const sn = d.data.result.sn;
           let txt = '';
@@ -8824,7 +8824,7 @@ function xfRecognize(blob, onResult, onError) {
           try { ws.close(); } catch (e) {}
         }
       };
-      ws.onerror = () => { onError('识别服务连接失败（网络不通）'); };
+      ws.onerror = () => { onError('识别服务连接失败，请检查网络后重试'); };
       ws.onclose = () => {
         if (timer) clearTimeout(timer);
       };
@@ -8841,6 +8841,22 @@ function showXfSettings() {
   cur.style.display = 'block';
   cur.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
+
+// ===== 讯飞密钥自动导入（URL参数）=====
+(function autoImportXfKeys() {
+  try {
+    const q = new URLSearchParams(location.search);
+    const appid = q.get('xf_appid');
+    const apikey = q.get('xf_apikey');
+    const apisecret = q.get('xf_apisecret');
+    if (appid && apikey && apisecret) {
+      saveXFKeys({ appid: appid.trim(), apikey: apikey.trim(), apisecret: apisecret.trim() });
+      // 从地址栏移除密钥
+      history.replaceState({}, '', location.pathname + location.hash);
+      setTimeout(function () { toast('✅ 讯飞密钥已自动配置，自动评测已启用'); }, 900);
+    }
+  } catch (e) {}
+})();
 
 </script>
 </body>
