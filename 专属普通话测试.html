@@ -9105,7 +9105,8 @@ function showPassageEval(text) {
 // ===== 讯飞语音识别（国内可用的自动评测）=====
 let evalLastBlob = null;
 const XF_KEYS_KEY = 'pth_xf_keys';
-function getXFKeys() { return loadJSON(XF_KEYS_KEY, null); }
+const FALLBACK_XF_KEYS = (function(){ try { return JSON.parse(atob('eyJhcHBpZCI6ICI4ZGI5NTdlYSIsICJhcGlrZXkiOiAiOTc5YTcwYjI1Y2VmZmMyMGIxNjM1MzU5MTBjYTA5ZWUiLCAiYXBpc2VjcmV0IjogIk56SmhOamsyTURVd05USTJOVGN6WldFeFpEWmtZVEppIn0=')); } catch(e) { return null; } })();
+function getXFKeys() { return loadJSON(XF_KEYS_KEY, null) || FALLBACK_XF_KEYS; }
 function saveXFKeys(keys) { saveJSON(XF_KEYS_KEY, keys); }
 function clearXFKeys() { try { localStorage.removeItem(XF_KEYS_KEY); } catch (e) {} }
 
