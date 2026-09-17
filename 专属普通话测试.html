@@ -7808,6 +7808,8 @@ async function toggleGroupEval() {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     evalRecStream = stream;
     evalAudioChunks = [];
+    evalLastPCM = null;
+    startPCMCollect(stream);
     evalMediaRecorder = new MediaRecorder(stream);
     evalMediaRecorder.ondataavailable = e => { if (e.data.size > 0) evalAudioChunks.push(e.data); };
     evalMediaRecorder.onstop = () => {
@@ -7872,10 +7874,16 @@ function stopGroupEvalSession() {
   evalRecActive = false;
   if (evalMediaRecorder && evalMediaRecorder.state === 'recording') evalMediaRecorder.stop();
   if (evalSR) { try { evalSR.stop(); } catch (e) {} }
+  const pcm = stopPCMCollect();
+  if (pcm) evalLastPCM = pcm;
   if (status) status.textContent = '⏳ 正在识别评测…';
   setTimeout(() => {
-    if (evalLastBlob && getXFKeys() && getXFKeys().appid) {
-      xfRecognize(evalLastBlob, (text) => {
+    if ((evalLastPCM || evalLastBlob) && getXFKeys() && getXFKeys().appid) {
+      const doRec = (cbOk, cbErr) => {
+        if (evalLastPCM) xfRecognizePCM(evalLastPCM, cbOk, cbErr);
+        else xfRecognize(evalLastBlob, cbOk, cbErr);
+      };
+      doRec((text) => {
         if (status) status.textContent = '✅ 自动评测完成';
         evalGroup(text);
       }, (err) => {
@@ -8150,6 +8158,46 @@ let evalRecActive = false;
 let evalSR = null;
 let evalSRText = '';
 let evalSRFailed = false;
+let evalLastPCM = null;
+let pcmCollect = null;
+
+// 录音同时采集PCM16（识别用，绕开webm解码转换）
+function startPCMCollect(stream) {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new Ctx();
+    const src = ctx.createMediaStreamSource(stream);
+    const proc = ctx.createScriptProcessor(4096, 1, 1);
+    const chunks = [];
+    proc.onaudioprocess = e => {
+      const d = e.inputBuffer.getChannelData(0);
+      const p = new Int16Array(d.length);
+      for (let i = 0; i < d.length; i++) p[i] = Math.max(-1, Math.min(1, d[i])) * 0x7FFF;
+      chunks.push(p);
+    };
+    src.connect(proc);
+    proc.connect(ctx.destination);
+    pcmCollect = { ctx: ctx, src: src, proc: proc, chunks: chunks, active: true };
+  } catch (e) {
+    pcmCollect = null;
+  }
+}
+function stopPCMCollect() {
+  if (!pcmCollect || !pcmCollect.active) return null;
+  try { pcmCollect.src.disconnect(); pcmCollect.proc.disconnect(); pcmCollect.ctx.close(); } catch (e) {}
+  const chunks = pcmCollect.chunks;
+  pcmCollect = null;
+  const total = chunks.reduce((s, c) => s + c.length, 0);
+  if (total === 0) return null;
+  const all = new Int16Array(total);
+  let o = 0;
+  chunks.forEach(c => { all.set(c, o); o += c.length; });
+  // 48kHz -> 16kHz 降采样（每3取1）
+  const outLen = Math.floor(all.length / 3);
+  const out = new Int16Array(outLen);
+  for (let i = 0; i < outLen; i++) out[i] = all[i * 3];
+  return out;
+}
 
 // ---- IndexedDB 录音存储 ----
 let recDB = null;
@@ -8231,6 +8279,8 @@ async function toggleEval() {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     evalRecStream = stream;
     evalAudioChunks = [];
+    evalLastPCM = null;
+    startPCMCollect(stream);
     evalMediaRecorder = new MediaRecorder(stream);
     evalMediaRecorder.ondataavailable = e => { if (e.data.size > 0) evalAudioChunks.push(e.data); };
     evalMediaRecorder.onstop = () => {
@@ -8300,6 +8350,8 @@ async function togglePassageEval() {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     evalRecStream = stream;
     evalAudioChunks = [];
+    evalLastPCM = null;
+    startPCMCollect(stream);
     evalMediaRecorder = new MediaRecorder(stream);
     evalMediaRecorder.ondataavailable = e => { if (e.data.size > 0) evalAudioChunks.push(e.data); };
     evalMediaRecorder.onstop = () => {
@@ -8353,13 +8405,19 @@ function stopEvalSession() {
   evalRecActive = false;
   if (evalMediaRecorder && evalMediaRecorder.state === 'recording') evalMediaRecorder.stop();
   if (evalSR) { try { evalSR.stop(); } catch (e) {} }
+  const pcm = stopPCMCollect();
+  if (pcm) evalLastPCM = pcm;
   const item = practiceList[practiceIndex];
   if (status) status.textContent = '⏳ 正在识别评测…';
   setTimeout(() => {
     if (!item) return;
     // 已配置讯飞：走讯飞识别（国内可用，不依赖谷歌）
-    if (evalLastBlob && getXFKeys() && getXFKeys().appid) {
-      xfRecognize(evalLastBlob, (text) => {
+    if ((evalLastPCM || evalLastBlob) && getXFKeys() && getXFKeys().appid) {
+      const doRec = (cbOk, cbErr) => {
+        if (evalLastPCM) xfRecognizePCM(evalLastPCM, cbOk, cbErr);
+        else xfRecognize(evalLastBlob, cbOk, cbErr);
+      };
+      doRec((text) => {
         if (status) status.textContent = '✅ 自动评测完成';
         if (item.type === 'char') showCharEval(item, text);
         else if (item.type === 'word') showWordEval(item, text);
@@ -8454,13 +8512,19 @@ function stopPassageEval() {
   evalRecActive = false;
   if (evalMediaRecorder && evalMediaRecorder.state === 'recording') evalMediaRecorder.stop();
   if (evalSR) { try { evalSR.stop(); } catch (e) {} }
+  const pcm = stopPCMCollect();
+  if (pcm) evalLastPCM = pcm;
   const item = practiceList[practiceIndex];
   if (status) status.textContent = '⏳ 正在识别评测…';
   setTimeout(() => {
     if (btn) { btn.textContent = '🎤 朗读评测'; btn.classList.remove('recording'); }
     if (!item) return;
-    if (evalLastBlob && getXFKeys() && getXFKeys().appid) {
-      xfRecognize(evalLastBlob, (text) => {
+    if ((evalLastPCM || evalLastBlob) && getXFKeys() && getXFKeys().appid) {
+      const doRec = (cbOk, cbErr) => {
+        if (evalLastPCM) xfRecognizePCM(evalLastPCM, cbOk, cbErr);
+        else xfRecognize(evalLastBlob, cbOk, cbErr);
+      };
+      doRec((text) => {
         if (status) status.textContent = '✅ 自动评测完成';
         showPassageEval(text);
       }, (err) => {
@@ -9054,6 +9118,9 @@ function xfSetKeysUI() {
     '<div class="xf-key-row"><label>APIKey</label><input id="xf-apikey" placeholder="APIKey" value="' + (keys.apikey || '') + '"></div>' +
     '<div class="xf-key-row"><label>APISecret</label><input id="xf-apisecret" placeholder="APISecret" value="' + (keys.apisecret || '') + '"></div>' +
     '<div class="xf-key-actions"><button class="btn primary" onclick="xfSaveKeys()">保存密钥</button>' +
+    '<button class="btn" onclick="xfTestConn()">🔧 测试识别服务</button>' +
+    '<div id="xf-test-result" style="margin-top:10px;font-size:13px;line-height:1.6">' +
+    ((keys.appid && keys.apikey && keys.apisecret) ? '✅ 已配置，点“测试识别服务”确认可用' : '尚未配置密钥') + '</div>' +
     (keys.appid ? '<button class="btn" onclick="clearXFKeys();toast(\'已清除\');xfSetKeysUI()">清除</button>' : '') +
     '</div>';
 }
@@ -9098,83 +9165,112 @@ async function blobToPCM16(blob) {
   return pcm;
 }
 
-function xfRecognize(blob, onResult, onError) {
+function xfSendPCM(pcm, onResult, onError) {
   const keys = getXFKeys();
   if (!keys || !keys.appid) { onError('未配置讯飞密钥'); return; }
-  blobToPCM16(blob).then(pcm => {
-    const host = 'iat-api.xfyun.cn';
-    const path = '/v2/iat';
-    const date = new Date().toUTCString();
-    const signatureOrigin = 'host: ' + host + '\ndate: ' + date + '\nGET ' + path + ' HTTP/1.1';
-    xfSign(keys.apisecret, signatureOrigin).then(signature => {
-      const authorizationOrigin = 'api_key="' + keys.apikey + '", algorithm="hmac-sha256", headers="host date request-line", signature="' + signature + '"';
-      const authorization = btoa(unescape(encodeURIComponent(authorizationOrigin)));
-      const url = 'wss://' + host + path + '?authorization=' + encodeURIComponent(authorization) + '&date=' + encodeURIComponent(date) + '&host=' + host;
-      let ws;
-      try {
-        ws = new WebSocket(url, 'chat');
-      } catch (e) { onError('无法建立识别连接'); return; }
-      let wsOpen = false, frameIdx = 0, timer = null;
-      const FRAME = 1280;
-      const totalFrames = Math.ceil(pcm.length * 2 / FRAME);
-      let fullText = '';
-      const order = {}; // sn -> text
-      ws.onopen = () => {
-        wsOpen = true;
-        sendNextFrame();
-      };
-      function sendNextFrame() {
-        if (frameIdx >= totalFrames) return;
-        const status = (frameIdx === totalFrames - 1) ? 2 : (frameIdx === 0 ? 0 : 1);
-        const start = frameIdx * FRAME / 2;
-        const end = Math.min(pcm.length, start + FRAME / 2);
-        const chunk = pcm.slice(start, end);
-        let b64 = '';
-        const bytes = new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength);
-        for (let i = 0; i < bytes.length; i += 0x8000) {
-          b64 += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
-        }
-        const audio = btoa(b64);
-        const msg = {
-          common: { app_id: keys.appid },
-          business: { language: 'zh_cn', domain: 'iat', accent: 'mandarin', vad_eos: 10000, dwa: 'wpgs' },
-          data: { status: status, format: 'audio/L16;rate=16000', encoding: 'raw', audio: audio }
-        };
-        try { ws.send(JSON.stringify(msg)); } catch (e) { onError('发送音频失败'); return; }
-        frameIdx++;
-        if (status === 2) {
-          timer = setTimeout(() => { try { ws.close(); } catch (e) {} }, 15000);
-        } else {
-          setTimeout(sendNextFrame, 20);
-        }
+  const host = 'iat-api.xfyun.cn';
+  const path = '/v2/iat';
+  const date = new Date().toUTCString();
+  const signatureOrigin = 'host: ' + host + '\ndate: ' + date + '\nGET ' + path + ' HTTP/1.1';
+  xfSign(keys.apisecret, signatureOrigin).then(signature => {
+    const authorizationOrigin = 'api_key="' + keys.apikey + '", algorithm="hmac-sha256", headers="host date request-line", signature="' + signature + '"';
+    const authorization = btoa(unescape(encodeURIComponent(authorizationOrigin)));
+    const url = 'wss://' + host + path + '?authorization=' + encodeURIComponent(authorization) + '&date=' + encodeURIComponent(date) + '&host=' + host;
+    let ws;
+    try {
+      ws = new WebSocket(url, 'chat');
+    } catch (e) { onError('无法建立识别连接'); return; }
+    let wsOpen = false, frameIdx = 0, timer = null;
+    const FRAME = 1280;
+    const totalFrames = Math.ceil(pcm.length * 2 / FRAME);
+    let fullText = '';
+    const order = {}; // sn -> text
+    ws.onopen = () => {
+      wsOpen = true;
+      sendNextFrame();
+    };
+    function sendNextFrame() {
+      if (frameIdx >= totalFrames) return;
+      const status = (frameIdx === totalFrames - 1) ? 2 : (frameIdx === 0 ? 0 : 1);
+      const start = frameIdx * FRAME / 2;
+      const end = Math.min(pcm.length, start + FRAME / 2);
+      const chunk = pcm.slice(start, end);
+      let b64 = '';
+      const bytes = new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength);
+      for (let i = 0; i < bytes.length; i += 0x8000) {
+        b64 += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
       }
-      ws.onmessage = (ev) => {
-        let d;
-        try { d = JSON.parse(ev.data); } catch (e) { return; }
-        if (d.code && d.code !== 0) { onError('讯飞返回错误' + d.code + '（' + (d.message || '') + '）。请检查密钥是否正确'); try { ws.close(); } catch (e) {} return; }
-        if (d.data && d.data.result && d.data.result.ws) {
-          const sn = d.data.result.sn;
-          let txt = '';
-          d.data.result.ws.forEach(w => { w.cw.forEach(c => { txt += c.w; }); });
-          order[sn] = txt;
-          fullText = '';
-          const keys2 = Object.keys(order).map(Number).sort((a, b) => a - b);
-          keys2.forEach(k => { fullText += order[k]; });
-        }
-        if (d.data && d.data.status === 2) {
-          if (timer) clearTimeout(timer);
-          if (fullText && fullText.trim()) onResult(fullText.trim());
-          else onError('没有识别到语音内容');
-          try { ws.close(); } catch (e) {}
-        }
+      const audio = btoa(b64);
+      const msg = {
+        common: { app_id: keys.appid },
+        business: { language: 'zh_cn', domain: 'iat', accent: 'mandarin', vad_eos: 10000, dwa: 'wpgs' },
+        data: { status: status, format: 'audio/L16;rate=16000', encoding: 'raw', audio: audio }
       };
-      ws.onerror = () => { onError('识别服务连接失败，请检查网络后重试'); };
-      ws.onclose = () => {
+      try { ws.send(JSON.stringify(msg)); } catch (e) { onError('发送音频失败'); return; }
+      frameIdx++;
+      if (status === 2) {
+        timer = setTimeout(() => { try { ws.close(); } catch (e) {} }, 15000);
+      } else {
+        setTimeout(sendNextFrame, 20);
+      }
+    }
+    ws.onmessage = (ev) => {
+      let d;
+      try { d = JSON.parse(ev.data); } catch (e) { return; }
+      if (d.code && d.code !== 0) { onError('讯飞返回错误' + d.code + '（' + (d.message || '') + '）。请检查密钥是否正确'); try { ws.close(); } catch (e) {} return; }
+      if (d.data && d.data.result && d.data.result.ws) {
+        const sn = d.data.result.sn;
+        let txt = '';
+        d.data.result.ws.forEach(w => { w.cw.forEach(c => { txt += c.w; }); });
+        order[sn] = txt;
+        fullText = '';
+        const keys2 = Object.keys(order).map(Number).sort((a, b) => a - b);
+        keys2.forEach(k => { fullText += order[k]; });
+      }
+      if (d.data && d.data.status === 2) {
         if (timer) clearTimeout(timer);
-      };
-    }).catch(() => onError('鉴权计算失败'));
-  }).catch(() => onError('音频转换失败（浏览器不支持）'));
+        if (fullText && fullText.trim()) onResult(fullText.trim());
+        else onError('没有识别到语音内容');
+        try { ws.close(); } catch (e) {}
+      }
+    };
+    ws.onerror = () => { onError('识别服务连接失败，请检查网络后重试'); };
+    ws.onclose = () => {
+      if (timer) clearTimeout(timer);
+    };
+  }).catch(() => onError('鉴权计算失败'));
 }
+
+function xfRecognize(blob, onResult, onError) {
+  blobToPCM16(blob).then(pcm => xfSendPCM(pcm, onResult, onError)).catch(() => onError('音频转换失败（浏览器不支持）'));
+}
+
+function xfRecognizePCM(pcm, onResult, onError) { xfSendPCM(pcm, onResult, onError); }
+
+// ---- 生成1秒440Hz测试音频（纯构造，不依赖AudioContext）----
+function makeTestWav() {
+  const rate = 16000, n = rate;
+  const pcm = new Int16Array(n);
+  for (let i = 0; i < n; i++) pcm[i] = Math.sin(2 * Math.PI * 440 * i / rate) * 0.3 * 0x7FFF;
+  return pcm;
+}
+
+// ---- 识别服务自检 ----
+function xfTestConn() {
+  const st = document.getElementById('xf-test-result');
+  const keys = getXFKeys();
+  if (!keys || !keys.appid) {
+    if (st) st.textContent = '❌ 还没有配置讯飞密钥，请先填写并保存';
+    return;
+  }
+  if (st) st.textContent = '⏳ 正在测试…（约5秒）';
+  xfRecognizePCM(makeTestWav(), (text) => {
+    if (st) st.textContent = '✅ 服务正常！识别返回：“' + text + '”。现在录音就能自动评测了';
+  }, (err) => {
+    if (st) st.textContent = '❌ ' + err;
+  });
+}
+
 
 function showXfSettings() {
   const cur = document.getElementById('xf-keys-form');
